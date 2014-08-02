@@ -297,8 +297,15 @@ if __name__ == '__main__':
             label .foo
         a=2
 
+    @goto
+    def simple(n):
+        goto .skip
+        print(n)
+        label .skip
+
     assert(test1(10) == 55)
     test2()
     test_block_stack()
     nested()
     with_test()
+    print(dis.dis(simple))

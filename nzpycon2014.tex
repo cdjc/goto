@@ -1,0 +1,161 @@
+% outline
+
+% Intro
+% Brief history
+% Why?
+% goto with settrace
+% goto with bytecodes
+% Crashing python with bytescodes
+% Problems...
+% Performance!
+
+\documentclass{beamer}
+\usepackage{minted}
+\usetheme{default}
+\hypersetup{colorlinks=true}
+\usepackage{framed}
+\usepackage[normalem]{ulem}
+
+\title{goto in Python 3. Yes. Really}
+\subtitle{Kiwi PyCon 2014}
+\author{Carl Cerecke}
+%\institute{\href{https://github.com/cdjc/goto}}
+\date{September 13-14, 2014}
+
+\begin{document}
+
+    \begin{frame}[plain]
+        \titlepage
+    \end{frame}
+
+\begin{frame}{History}
+
+\begin{itemize}
+\item In the beginning was the \texttt{goto}
+\item 1958 Heinz Zemanek expresses doubts about goto at pre-ALGOL meeting.
+\item 1968 Edsgar Dijkstra ``GOTO Considered Harmful''
+\item 1974 Don Knuth ``Structured Programming with go to statements''
+\item 1987 Frank Rubin ` ``GOTO Considered Harmful'' Considered Harmful'
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Why add goto to python?}
+
+Because it wasn't there.
+
+Also useful for:
+\begin{itemize}
+\item State machines
+\item Breaking out of a nested loop
+\item Generating python code programmatically
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{But it's already been done before!}
+
+\begin{itemize}
+\item April 1 2004, \href{http://entrian/goto}{entrian/goto}
+
+\item Uses \texttt{sys.settrace}
+
+\item Checks before the execution of \emph{every line} for goto. Slow
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Goto using bytecode manipulation}
+
+\begin{itemize}
+\item Python bytecodes already have gotos.
+\item JUMP\_FORWARD(delta)
+\item JUMP\_ABSOLUTE(target)
+\item also exotics like JUMP\_IF\_FALSE\_OR\_POP(target)
+\end{itemize}
+
+\begin{minted}{python}
+    @goto
+    def simple(n):
+        goto .skip
+        print(n)
+        label .skip
+\end{minted}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\begin{verbatim}
+302   0 LOAD_GLOBAL      0 (goto) 
+      3 LOAD_ATTR        1 (skip) 
+      6 POP_TOP              
+303   7 LOAD_GLOBAL      2 (print) 
+     10 LOAD_FAST        0 (n) 
+     13 CALL_FUNCTION    1 (1 positional, 0 keyword pair) 
+     16 POP_TOP              
+
+304  17 LOAD_GLOBAL      3 (label) 
+     20 LOAD_ATTR        1 (skip) 
+     23 POP_TOP              
+     24 LOAD_CONST       0 (None) 
+     27 RETURN_VALUE         
+\end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{Disassembly of simple function}
+\begin{tabular}{l|r|l|r|l}
+line & addr & opcode & par & interpretation \\
+\hline
+302 &          0 & LOAD\_GLOBAL         &     0 & (goto)  \\
+     &           3 &  LOAD\_ATTR               &   1  & (skip)  \\
+      &          6 &  POP\_TOP      &  &           \\
+\hline
+303   &          7 &  LOAD\_GLOBAL         &       2  & (print)  \\
+          &     10 &  LOAD\_FAST           &       0 &  (n)  \\
+              & 13 &  CALL\_FUNCTION        &      1  & (1 positional, 0 keyword pair)  \\
+     &          16 &  POP\_TOP            &     &  \\
+\hline
+304   &         17 &  LOAD\_GLOBAL        &        3  & (label)  \\
+     &          20 &  LOAD\_ATTR          &        1  & (skip)  \\
+     &          23 &  POP\_TOP            &     &  \\
+     &          24 &  LOAD\_CONST         &        0  & (None)  \\
+     &          27 &  RETURN\_VALUE      &      &  \\
+\end{tabular}
+\end{frame}
+
+\begin{frame}{Changes for goto}
+
+\begin{itemize}
+\item Python treats both goto and label as attribute access.
+
+\item Want to change goto into JUMP\_ABSOLUTE
+
+\item and label int NOP
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Byte code with goto changes}
+\begin{tabular}{l|r|l|r|l}
+line & addr & opcode & par & interpretation \\
+\hline
+302 &          0 & JUMP\_ABSOLUTE         &     24 &  \\
+     &           3 &  LOAD\_ATTR               &   1  & (skip)  \\
+      &          6 &  POP\_TOP      &  &           \\
+\hline
+303   &          7 &  LOAD\_GLOBAL         &       2  & (print)  \\
+          &     10 &  LOAD\_FAST           &       0 &  (n)  \\
+              & 13 &  CALL\_FUNCTION        &      1  & (1 positional, 0 keyword pair)  \\
+     &          16 &  POP\_TOP            &     &  \\
+\hline
+304   &         17 &  NOP        &          &   \\
+      &         18 &  NOP        &          &   \\
+      &         19 &  NOP        &          &   \\
+      &         20 &  NOP        &          &   \\
+      &         21 &  NOP        &          &   \\
+      &         22 &  NOP        &          &   \\
+      &         23 &  NOP        &          &   \\
+target     &          24 &  LOAD\_CONST         &        0  & (None)  \\
+     &          27 &  RETURN\_VALUE      &      &  \\
+\end{tabular}
+\end{frame}
+
+\end{document}
