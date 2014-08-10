@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import dis
 import types
 
@@ -302,10 +303,77 @@ if __name__ == '__main__':
         goto .skip
         print(n)
         label .skip
+        
+    #@goto
+    def loop():
+        for i in 'foo':
+            goto .done
+        label .done
+
+    class FunctionStateMachine:
+        
+        def __init__(self, limit):
+            self.n = 0
+            self.limit = limit
+            
+        def state_odd(self):
+            self.n += 1
+            return self.state_even
+            
+        def state_even(self):
+            if self.n == self.limit:
+                return None
+            self.n += 1
+            return self.state_odd
+            
+        def go(self):
+            state = self.state_even
+            while state:
+                state = state()
+    
+    @goto
+    def goto_state_machine(limit):
+        
+        n = 0
+
+        #################
+        label .state_even
+    
+        if n == limit:
+            return
+        n += 1
+        goto .state_odd # not really necessary
+        
+        ################
+        label .state_odd
+        
+        n += 1
+        goto .state_even
+        
+    
 
     assert(test1(10) == 55)
     test2()
     test_block_stack()
     nested()
     with_test()
-    print(dis.dis(simple))
+    #print(dis.dis(loop))
+    limit = 100000000
+    from time import process_time
+    start = process_time()
+    goto_state_machine(limit)
+    end = process_time()
+    print("goto:",end-start)
+    func = FunctionStateMachine(limit)
+    start = process_time()
+    func.go()
+    end = process_time()
+    print("func:",end-start)
+    start = process_time()
+    n = 0
+    while n != limit:
+        n += 1
+        n += 1
+    end = process_time()
+    print("while:", end-start)
+    

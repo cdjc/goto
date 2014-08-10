@@ -15,6 +15,8 @@
 \hypersetup{colorlinks=true}
 \usepackage{framed}
 \usepackage[normalem]{ulem}
+\usepackage{color}
+\usepackage{graphicx}
 
 \title{goto in Python 3. Yes. Really}
 \subtitle{Kiwi PyCon 2014}
@@ -42,7 +44,8 @@
 
 \begin{frame}{Why add goto to python?}
 
-Because it wasn't there.
+Because it wasn't there. It seemed like a good idea at the time...
+\vspace{1cm}
 
 Also useful for:
 \begin{itemize}
@@ -81,24 +84,10 @@ Also useful for:
         label .skip
 \end{minted}
 
-\end{frame}
+\begin{minted}{python}
+dis.dis(fn)      # pretty print byte code
+\end{minted}
 
-\begin{frame}[fragile]
-\begin{verbatim}
-302   0 LOAD_GLOBAL      0 (goto) 
-      3 LOAD_ATTR        1 (skip) 
-      6 POP_TOP              
-303   7 LOAD_GLOBAL      2 (print) 
-     10 LOAD_FAST        0 (n) 
-     13 CALL_FUNCTION    1 (1 positional, 0 keyword pair) 
-     16 POP_TOP              
-
-304  17 LOAD_GLOBAL      3 (label) 
-     20 LOAD_ATTR        1 (skip) 
-     23 POP_TOP              
-     24 LOAD_CONST       0 (None) 
-     27 RETURN_VALUE         
-\end{verbatim}
 \end{frame}
 
 \begin{frame}[fragile]{Disassembly of simple function}
@@ -117,6 +106,7 @@ line & addr & opcode & par & interpretation \\
 304   &         17 &  LOAD\_GLOBAL        &        3  & (label)  \\
      &          20 &  LOAD\_ATTR          &        1  & (skip)  \\
      &          23 &  POP\_TOP            &     &  \\
+\hline     
      &          24 &  LOAD\_CONST         &        0  & (None)  \\
      &          27 &  RETURN\_VALUE      &      &  \\
 \end{tabular}
@@ -129,7 +119,7 @@ line & addr & opcode & par & interpretation \\
 
 \item Want to change goto into JUMP\_ABSOLUTE
 
-\item and label int NOP
+\item and label into NOP
 \end{itemize}
 \end{frame}
 
@@ -137,25 +127,137 @@ line & addr & opcode & par & interpretation \\
 \begin{tabular}{l|r|l|r|l}
 line & addr & opcode & par & interpretation \\
 \hline
-302 &          0 & JUMP\_ABSOLUTE         &     24 &  \\
-     &           3 &  LOAD\_ATTR               &   1  & (skip)  \\
-      &          6 &  POP\_TOP      &  &           \\
+302 &          0 & \textcolor{red}{JUMP\_ABSOLUTE}         &     24 &  \\
+     &           3 &  \sout{LOAD\_ATTR}               &   1  & (skip)  \\
+      &          6 &  \sout{POP\_TOP}      &  &           \\
 \hline
 303   &          7 &  LOAD\_GLOBAL         &       2  & (print)  \\
           &     10 &  LOAD\_FAST           &       0 &  (n)  \\
               & 13 &  CALL\_FUNCTION        &      1  & (1 positional, 0 keyword pair)  \\
      &          16 &  POP\_TOP            &     &  \\
 \hline
-304   &         17 &  NOP        &          &   \\
-      &         18 &  NOP        &          &   \\
-      &         19 &  NOP        &          &   \\
-      &         20 &  NOP        &          &   \\
-      &         21 &  NOP        &          &   \\
-      &         22 &  NOP        &          &   \\
-      &         23 &  NOP        &          &   \\
+304   &         17 &  \textcolor{red}{NOP}        &          &   \\
+      &         18 &  \textcolor{red}{NOP}        &          &   \\
+      &         19 &  \textcolor{red}{NOP}        &          &   \\
+      &         20 &  \textcolor{red}{NOP}        &          &   \\
+      &         21 &  \textcolor{red}{NOP}        &          &   \\
+      &         22 &  \textcolor{red}{NOP}        &          &   \\
+      &         23 &  \textcolor{red}{NOP}        &          &   \\
+\hline
 target     &          24 &  LOAD\_CONST         &        0  & (None)  \\
      &          27 &  RETURN\_VALUE      &      &  \\
 \end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]{How to change bytecodes?}
+\begin{itemize}
+\item \verb!c = fn.__code__  #! code object. Not read only :-)
+\item \verb!c.co_code        #! bytecode string. Read only :-(
+\item Find all labels and gotos in \verb!c.co_code!
+\item \verb!NOP! all labels.
+\item Make gotos into \verb!JUMP_ABSOLUTE!
+\item Make new code object
+\item \verb!fn.__code__! = new code object
+\item \verb!return fn!
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Problems!}
+\begin{minted}{python}
+    @goto
+    def infinite(n):
+        label .start
+        for i in 'oops':
+            goto .start
+\end{minted}
+
+\begin{itemize}
+\item A loop adds a 'block'.
+\item At the end of the loop python does \verb!POP_BLOCK!
+\item Jumping out of a loop must \verb!POP_BLOCK! before jump.
+\item Illegal:
+\begin{itemize}
+\item Jump into a loop (Segmentation Fault on \verb!POP_BLOCK!)
+\item Jump into/out of \verb!try!, \verb!except!, \verb!finally!, \verb!with!
+\item Multiple identical labels (or missing label)
+\item Jump out of loop nested more than four deep.
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Performance}
+%\includepdf[pages={1}, fitpaper=false]{oddeven.pdf}
+\includegraphics[scale=0.5]{oddeven.pdf}
+
+\begin{itemize}
+\item Function-based state machine within a class
+\item Goto-based state machine within a function
+\item \verb!while! loop in plain code
+\end{itemize}
+
+The \emph{even} state breaks at n = 100000000
+
+Python 3.3.1 on Linux VM
+\end{frame}
+
+\begin{frame}[fragile]{Performance (function-based state machine)}
+
+%Function-based state machine
+\begin{minted}{python}
+class state_machine:
+    def even_state(self):
+        ...
+        return self.odd_state
+    def odd_state(self):
+        ...
+        return self.even_state
+    def go():
+        state = self.even_state
+        while state:
+            state = state()
+\end{minted}
+34.3 seconds
+\end{frame}
+
+
+\begin{frame}[fragile]{Performance (plain while loop)}
+\begin{minted}{python}
+n = 0
+while n != limit:
+    n += 1         # even -> odd
+    n += 1         # odd -> even
+\end{minted}
+10.8 seconds
+\end{frame}
+
+\begin{frame}[fragile]{Performance (goto-based state machine)}
+%\vspace{-1cm}
+\begin{minted}{python}
+@goto
+def goto_state_machine(limit):
+    n = 0
+
+    label .state_even  ### even_state
+    if n == limit:
+        return
+    n += 1
+    goto .state_odd
+    ################
+    label .state_odd   ### odd_state
+    n += 1
+    goto .state_even
+\end{minted}
+6.3 seconds!  (over 4 seconds \emph{faster} than a \verb!while! loop!)
+\end{frame}
+
+\begin{frame}[fragile]{Future work}
+
+\begin{itemize}
+\item \verb!comefrom! statement
+\item Computed \verb!goto!
+\item Remove some restrictions where sensible.
+\end{itemize}
+
 \end{frame}
 
 \end{document}

@@ -1,0 +1,6 @@
+digraph oddeven {
+graph [rankdir=LR];
+node [shape=circle];
+even -> odd [label = "n += 1" ];
+odd -> even [label = "n += 1" ];
+}
