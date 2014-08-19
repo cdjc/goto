@@ -21,7 +21,7 @@
 \title{goto in Python 3. Yes. Really}
 \subtitle{Kiwi PyCon 2014}
 \author{Carl Cerecke}
-%\institute{\href{https://github.com/cdjc/goto}}
+\institute{https://github.com/cdjc/goto}
 \date{September 13-14, 2014}
 
 \begin{document}
@@ -247,15 +247,16 @@ def goto_state_machine(limit):
     n += 1
     goto .state_even
 \end{minted}
-6.3 seconds!  (over 4 seconds \emph{faster} than a \verb!while! loop!)
+\pause
+\alert{6.3 seconds!}  (over 4 seconds \emph{faster} than a \verb!while! loop!)
 \end{frame}
 
 \begin{frame}[fragile]{Future work}
 
 \begin{itemize}
+\item Remove some restrictions where sensible.
 \item \verb!comefrom! statement
 \item Computed \verb!goto!
-\item Remove some restrictions where sensible.
 \end{itemize}
 
 \end{frame}
