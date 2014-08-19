@@ -5,7 +5,7 @@ An implementation of goto for Python 3.
 
 Usage:
 
-```
+```python
 from goto import goto
 
 @goto
