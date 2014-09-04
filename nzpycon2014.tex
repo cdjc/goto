@@ -18,9 +18,10 @@
 \usepackage{color}
 \usepackage{graphicx}
 
-\title{goto in Python 3. Yes. Really}
+\title{goto in Python 3. Yes. Really.}
 \subtitle{Kiwi PyCon 2014}
-\author{Carl Cerecke}
+\author{\texorpdfstring{Carl Cerecke\newline\url{carl@free.org.nz}}{Carl Cerecke}}
+%\address{carl\@free.org.nz}
 \institute{https://github.com/cdjc/goto}
 \date{September 13-14, 2014}
 
@@ -29,6 +30,10 @@
     \begin{frame}[plain]
         \titlepage
     \end{frame}
+
+\begin{frame}[fragile]{BASIC on the Commodore 64}
+\includegraphics{c64.png}
+\end{frame}
 
 \begin{frame}{History}
 
@@ -42,9 +47,9 @@
 
 \end{frame}
 
-\begin{frame}{Why add goto to python?}
+\begin{frame}{Why add goto to Python?}
 
-Because it wasn't there. It seemed like a good idea at the time...
+It seemed like a good idea at the time...
 \vspace{1cm}
 
 Also useful for:
@@ -52,6 +57,7 @@ Also useful for:
 \item State machines
 \item Breaking out of a nested loop
 \item Generating python code programmatically
+\item Translating goto-filled code to python
 \end{itemize}
 
 \end{frame}
@@ -59,38 +65,51 @@ Also useful for:
 \begin{frame}{But it's already been done before!}
 
 \begin{itemize}
-\item April 1 2004, \href{http://entrian/goto}{entrian/goto}
+\item April 1 2004, \href{http://entrian/goto}{http://entrian/goto}
 
 \item Uses \texttt{sys.settrace}
 
 \item Checks before the execution of \emph{every line} for goto. Slow
+
+\item Module scope, not function scope.
 \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Goto using bytecode manipulation}
 
 \begin{itemize}
-\item Python bytecodes already have gotos.
+\item Python bytecodes already have gotos:
 \item JUMP\_FORWARD(delta)
 \item JUMP\_ABSOLUTE(target)
 \item also exotics like JUMP\_IF\_FALSE\_OR\_POP(target)
 \end{itemize}
 
-\begin{minted}{python}
-    @goto
-    def simple(n):
-        goto .skip
-        print(n)
-        label .skip
-\end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Simple example function}
+
+
 
 \begin{minted}{python}
+from goto import goto
+
+@goto            # enables goto in decorated function
+def simple(n):
+    goto .skip
+    print(n)
+    label .skip
+\end{minted}
+
+We can see python bytecodes:
+
+\begin{minted}{python}
+import dis
 dis.dis(fn)      # pretty print byte code
 \end{minted}
 
 \end{frame}
 
-\begin{frame}[fragile]{Disassembly of simple function}
+\begin{frame}[fragile]{Disassembly of simple function (without goto decorator)}
 \begin{tabular}{l|r|l|r|l}
 line & addr & opcode & par & interpretation \\
 \hline
@@ -112,14 +131,15 @@ line & addr & opcode & par & interpretation \\
 \end{tabular}
 \end{frame}
 
-\begin{frame}{Changes for goto}
+\begin{frame}[fragile]{Changes required for goto}
 
 \begin{itemize}
-\item Python treats both goto and label as attribute access.
+\item Python treats \verb!goto! statement as attribute access.
+\item Likewise for \verb!label! statement.
 
-\item Want to change goto into JUMP\_ABSOLUTE
+\item Need to change \verb!goto! into \verb!JUMP_ABSOLUTE!
 
-\item and label into NOP
+\item and \verb!label! into \verb!NOP!
 \end{itemize}
 \end{frame}
 
@@ -150,6 +170,7 @@ target     &          24 &  LOAD\_CONST         &        0  & (None)  \\
 \end{frame}
 
 \begin{frame}[fragile]{How to change bytecodes?}
+Decorator outline (code at \href{http://github.com/cdjc/goto} {http://github.com/cdjc/goto} )
 \begin{itemize}
 \item \verb!c = fn.__code__  #! code object. Not read only :-)
 \item \verb!c.co_code        #! bytecode string. Read only :-(
@@ -172,8 +193,8 @@ target     &          24 &  LOAD\_CONST         &        0  & (None)  \\
 \end{minted}
 
 \begin{itemize}
-\item A loop adds a 'block'.
-\item At the end of the loop python does \verb!POP_BLOCK!
+\item At loop-start, python adds a 'block'.
+\item At loop-end python does \verb!POP_BLOCK!
 \item Jumping out of a loop must \verb!POP_BLOCK! before jump.
 \item Illegal:
 \begin{itemize}
@@ -255,6 +276,7 @@ def goto_state_machine(limit):
 
 \begin{itemize}
 \item Remove some restrictions where sensible.
+\item pypi or something...
 \item \verb!comefrom! statement
 \item Computed \verb!goto!
 \end{itemize}
