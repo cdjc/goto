@@ -237,7 +237,7 @@ class state_machine:
         while state:
             state = state()
 \end{minted}
-34.3 seconds
+\alert{35.0 seconds}
 \end{frame}
 
 
@@ -248,7 +248,7 @@ while n != limit:
     n += 1         # even -> odd
     n += 1         # odd -> even
 \end{minted}
-10.8 seconds
+\alert{11.5 seconds}
 \end{frame}
 
 \begin{frame}[fragile]{Performance (goto-based state machine)}
@@ -269,7 +269,10 @@ def goto_state_machine(limit):
     goto .state_even
 \end{minted}
 \pause
-\alert{6.3 seconds!}  (over 4 seconds \emph{faster} than a \verb!while! loop!)
+\alert{7.2 seconds!}  (over 4 seconds \emph{faster} than a \verb!while! loop!)
+
+\pause
+But... \verb!while! loop \emph{inside} function: \alert{7.1 seconds.} :-(
 \end{frame}
 
 \begin{frame}[fragile]{Future work}
