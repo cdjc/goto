@@ -45,28 +45,29 @@ def goto(fn):
         ilist[index:index+7] = [dis.opmap['NOP']]*7
 
     # change gotos to jumps
-    for label,(index, goto_stack) in gotos.items():
-        if label not in labels:
-            raise MissingLabelError("Missing label: {}".format(label))
-        base_target,label_stack = labels[label]
-        # The label stack should be a subset of the goto stack,
-        # but any with, try, or finally block must occur in both.
-        if label_stack != goto_stack[:len(label_stack)]:
-            raise IllegalGoto('''goto for label "{}" is outside that label's block'''.format(label))
-        loop_depth = len(goto_stack) - len(label_stack)
-        if loop_depth > 4:
-            raise IllegalGoto('''goto cannot jump out more than 4 blocks''')
-        non_loop_goto = [x for x in goto_stack if x[0] != 'SETUP_LOOP']
-        non_loop_label = [x for x in label_stack if x[0] != 'SETUP_LOOP']
-        if non_loop_goto != non_loop_label:
-            raise IllegalGoto('label "{}" has goto crossing try, finally, or with boundary'.format(label))
-        
-        ilist[index:index+loop_depth] = [dis.opmap['POP_BLOCK']]*loop_depth
-        target = base_target + 7   # skip NOPs
-        jump_index = index+loop_depth
-        ilist[jump_index] = dis.opmap['JUMP_ABSOLUTE']
-        ilist[jump_index + 1] = target & 255
-        ilist[jump_index + 2] = target >> 8
+    for label,goto_list in gotos.items():
+        for index,goto_stack in goto_list:
+            if label not in labels:
+                raise MissingLabelError("Missing label: {}".format(label))
+            base_target,label_stack = labels[label]
+            # The label stack should be a subset of the goto stack,
+            # but any with, try, or finally block must occur in both.
+            if label_stack != goto_stack[:len(label_stack)]:
+                raise IllegalGoto('''goto for label "{}" is outside that label's block'''.format(label))
+            loop_depth = len(goto_stack) - len(label_stack)
+            if loop_depth > 4:
+                raise IllegalGoto('''goto cannot jump out more than 4 blocks''')
+            non_loop_goto = [x for x in goto_stack if x[0] != 'SETUP_LOOP']
+            non_loop_label = [x for x in label_stack if x[0] != 'SETUP_LOOP']
+            if non_loop_goto != non_loop_label:
+                raise IllegalGoto('label "{}" has goto crossing try, finally, or with boundary'.format(label))
+            
+            ilist[index:index+loop_depth] = [dis.opmap['POP_BLOCK']]*loop_depth
+            target = base_target + 7   # skip NOPs
+            jump_index = index+loop_depth
+            ilist[jump_index] = dis.opmap['JUMP_ABSOLUTE']
+            ilist[jump_index + 1] = target & 255
+            ilist[jump_index + 2] = target >> 8
 
     # create new code to replace existing function code
     newcode = types.CodeType(c.co_argcount,
@@ -136,7 +137,9 @@ def find_labels_and_gotos(code):
                         raise DuplicateLabelError('Label "{}" appears more than once'.format(label_name))
                     labels[label_name] = index, tuple(block_stack)
                 elif global_name == 'goto':
-                    gotos[label_name] = index, tuple(block_stack)
+                    if label_name not in gotos:
+                        gotos[label_name] = []
+                    gotos[label_name].append((index, tuple(block_stack)))
                     
             name = None
             i += 2
