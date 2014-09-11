@@ -163,7 +163,21 @@ if __name__ == '__main__':
         goto .skip
         print(n)
         label .skip
-        
+    
+    @goto
+    def double():
+        n = 0
+        label .start
+        n += 1
+        if n >= 10:
+            return
+        if n%2 == 0:
+            goto .start
+        print (n)
+        goto .start
+
+    double()
+
     #@goto
     def loop():
         for i in 'foo':
