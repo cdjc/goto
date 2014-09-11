@@ -78,12 +78,19 @@ Also useful for:
 \begin{frame}[fragile]{Goto using bytecode manipulation}
 
 \begin{itemize}
+\item Python source code is compiled into python \emph{bytecode} instructions.
+
+\item Each bytecode instruction is 1-3 bytes long.
 \item Python bytecodes already have gotos:
+
+\begin{itemize}
 \item JUMP\_FORWARD(delta)
 \item JUMP\_ABSOLUTE(target)
 \item also exotics like JUMP\_IF\_FALSE\_OR\_POP(target)
 \end{itemize}
-
+\item CPython only.
+\item See the \verb!dis! module.
+\end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Simple example function}
@@ -275,14 +282,15 @@ def goto_state_machine(limit):
 But... \verb!while! loop \emph{inside} function: \alert{7.1 seconds.} :-(
 \end{frame}
 
-\begin{frame}[fragile]{Future work}
+\begin{frame}[fragile]{The End}
 
-\begin{itemize}
-\item Remove some restrictions where sensible.
-\item pypi or something...
-\item \verb!comefrom! statement
-\item Computed \verb!goto!
-\end{itemize}
+Questions?% (e.g. What about a \verb!comefrom! statement?)
+%\begin{itemize}
+%\item Remove some restrictions where sensible.
+%\item pypi or something...
+%\item \verb!comefrom! statement
+%\item Computed \verb!goto!
+%\end{itemize}
 
 \end{frame}
 
