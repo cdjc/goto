@@ -18,7 +18,9 @@ if __name__ == '__main__':
         n -= 1
 
         goto .myLoop
-        
+
+    test1(10)
+
     # jump out of loop
     @goto
     def test2():
@@ -36,7 +38,6 @@ if __name__ == '__main__':
         
         # didn't find it
         assert(False)
-        return
 
         label .foundIt       
         assert(True)
@@ -92,6 +93,7 @@ if __name__ == '__main__':
                 goto .repeat
                 label .b
                 x = 2
+    test_block_stack()
 
     # Illegal jump into loop
     try:
@@ -117,7 +119,8 @@ if __name__ == '__main__':
                     for x4 in [4]:
                         goto .done
         label .done
-              
+
+    print(dis.dis(nested))
     # Illegal to jump out of >4 levels of nesting
     try:
         @goto
@@ -239,7 +242,7 @@ if __name__ == '__main__':
     with_test()
     #print(dis.dis(goto_state_machine))
     #print(dis.dis(while_loop))
-    limit = 100000000
+    limit = 10000000
     from time import process_time
     start = process_time()
     goto_state_machine(limit)
@@ -247,7 +250,7 @@ if __name__ == '__main__':
     print("goto:",end-start)
     func = FunctionStateMachine(limit)
     start = process_time()
-    #func.go()
+    func.go()
     end = process_time()
     print("func:",end-start)
     start = process_time()
