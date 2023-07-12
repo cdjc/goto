@@ -2,6 +2,14 @@
 
 from goto import *
 
+def foo():
+
+    a = 1
+    while a < 10:
+        a += 1
+    b = a*2
+    return b
+
 if __name__ == '__main__':
     
     # simple test

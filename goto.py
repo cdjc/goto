@@ -17,6 +17,7 @@ class IllegalGoto(Exception):
     pass
 
 
+
 def goto(fn):
     """
     A function decorator to add the goto command for a function.
@@ -139,3 +140,90 @@ def find_labels_and_gotos(code):
                     gotos[label] = []
                 gotos[label].append((index, tuple(block_stack)))
     return labels, gotos
+
+
+
+def foo(n):
+    s = 0
+
+    label.myLoop
+
+    if n <= 0:
+        return s
+    s += n
+    n -= 1
+
+    goto.myLoop
+
+def find_labels_and_gotos3_11(code):
+    labels = {}
+    gotos = {}
+    for ins in dis.get_instructions(code):
+        # XXX find out how nested into for loops we are
+        # XXX Maintain stack of GET_ITER locations we'll need to POP_TOP
+        # XXX if we want to jump 'up' the stack.
+        if ins.opname == 'LOAD_GLOBAL':
+            global_name = ins.argval
+            index = ins.offset
+            continue
+        if ins.opname == 'LOAD_ATTR':
+            label = ins.argval
+            if global_name == 'label':
+                if label in labels:
+                    raise DuplicateLabelError('Label "{}" appears more than once'.format(label))
+                labels[label] = index, tuple([])  # XXX
+            elif global_name == 'goto':
+                if label not in gotos:
+                    gotos[label] = []
+                gotos[label].append((index, tuple([])))  # XXX
+    return labels, gotos
+
+def goto3_11(fn):
+    '''
+
+    '''
+    c = fn.__code__
+
+    labels, gotos = find_labels_and_gotos3_11(c)
+
+    # make list from bytestring so we can modify the bytes
+    ilist = list(c.co_code)
+
+    #ilist[2] = 0
+    #ilist[4] = 0
+
+    # create new code to replace existing function code
+    # See https://docs.python.org/3/c-api/code.html
+
+    # co_attrs_name = [x for x in dir(c) if x.startswith('co_')]
+    # co_attrs_dict =  {x:getattr(c, x) for x in co_attrs_name}
+    #
+    # co_attrs_dict['co_code'] = bytes(ilist)
+
+    #newfn = fn.__code__.replace(co_code=bytes(ilist))
+
+    nc = types.CodeType(c.co_argcount,
+                        c.co_posonlyargcount,
+                        c.co_kwonlyargcount,
+                        c.co_nlocals,
+                        c.co_stacksize,
+                        c.co_flags,
+                        bytes(ilist), #c.co_code,
+                        c.co_consts,
+                        c.co_names,
+                        c.co_varnames,
+                        c.co_filename,
+                        c.co_name,
+                        c.co_qualname,
+                        c.co_firstlineno,
+                        c.co_linetable,
+                        c.co_exceptiontable,
+                        c.co_freevars,
+                        c.co_cellvars)
+
+    return nc
+
+
+#f = goto3_11(foo)
+#dis.dis(f)
+#print(list(f.co_code))
