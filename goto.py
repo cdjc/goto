@@ -221,7 +221,17 @@ def goto3_11(fn):
 
     #
 
-    # for goto
+    for label in gotos:
+        for goto_index, _, _ in gotos[label]:
+            label_index, _, _ = labels[label]
+            diff = (goto_index - label_index) // 2  # bytecodes are 2 bytes each.
+            # if abs(diff) > 255 then use EXTENDED_ARG
+            if diff > 0:
+                ilist[goto_index] = dis.opmap['JUMP_BACKWARD']
+                ilist[goto_index + 1] = diff + 1  # + 1 because it counts from the instruction after the JUMP
+            else:
+                ilist[goto_index] = dis.opmap['JUMP_FORWARD']
+                ilist[goto_index + 1] = -diff
 
     nc = types.CodeType(c.co_argcount,
                         c.co_posonlyargcount,
