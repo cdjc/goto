@@ -146,14 +146,17 @@ def find_labels_and_gotos(code):
 def foo(n):
     s = 0
 
-    label.myLoop
+    label .myLoop
 
+    print(s)
     if n <= 0:
         return s
     s += n
     n -= 1
 
-    goto.myLoop
+    goto .myLoop
+
+    return s
 
 def find_labels_and_gotos3_11(code):
     labels = {}
@@ -171,11 +174,16 @@ def find_labels_and_gotos3_11(code):
             if global_name == 'label':
                 if label in labels:
                     raise DuplicateLabelError('Label "{}" appears more than once'.format(label))
-                labels[label] = index, tuple([])  # XXX
+                labels[label] = index, ins.offset, tuple([])  # XXX (load_global, load_attr, stack of get_attr)
             elif global_name == 'goto':
                 if label not in gotos:
                     gotos[label] = []
-                gotos[label].append((index, tuple([])))  # XXX
+                gotos[label].append((index, ins.offset, tuple([])))  # XXX (load_global, load_attr, stack of get_attr)
+
+    hanging_goto = gotos.keys() - labels.keys()
+    if len(hanging_goto) != 0:
+        raise MissingLabelError(f"Gotos missing labels: {', '.join(hanging_goto)}")
+
     return labels, gotos
 
 def goto3_11(fn):
@@ -189,18 +197,31 @@ def goto3_11(fn):
     # make list from bytestring so we can modify the bytes
     ilist = list(c.co_code)
 
-    #ilist[2] = 0
-    #ilist[4] = 0
+    globals_to_nop = []
+    attrs_to_nop = []
+    # no-op the labels (and the CACHEs too otherwise it won't work)
+    for label, (load_global, load_attr, _) in labels.items():
+        globals_to_nop.append(load_global)
+        attrs_to_nop.append(load_attr)
 
-    # create new code to replace existing function code
-    # See https://docs.python.org/3/c-api/code.html
+    for goto_ls in gotos.values():
+        for (load_global, load_attr, _) in goto_ls:
+            globals_to_nop.append(load_global)
+            attrs_to_nop.append(load_attr)
 
-    # co_attrs_name = [x for x in dir(c) if x.startswith('co_')]
-    # co_attrs_dict =  {x:getattr(c, x) for x in co_attrs_name}
+    for index in globals_to_nop:
+        cache_count = dis._inline_cache_entries[dis.opmap['LOAD_GLOBAL']]
+        for nopi in range(cache_count+1):  # + 1 for the instruction itself
+            ilist[index+nopi*2] = 9
+
+    for index in attrs_to_nop:
+        cache_count = dis._inline_cache_entries[dis.opmap['LOAD_ATTR']]
+        for nopi in range(cache_count+1+1):  # + 1 for the instruction itself +1 for POP_TOP
+            ilist[index+nopi*2] = 9
+
     #
-    # co_attrs_dict['co_code'] = bytes(ilist)
 
-    #newfn = fn.__code__.replace(co_code=bytes(ilist))
+    # for goto
 
     nc = types.CodeType(c.co_argcount,
                         c.co_posonlyargcount,
@@ -208,7 +229,7 @@ def goto3_11(fn):
                         c.co_nlocals,
                         c.co_stacksize,
                         c.co_flags,
-                        bytes(ilist), #c.co_code,
+                        bytes(ilist),  # c.co_code,
                         c.co_consts,
                         c.co_names,
                         c.co_varnames,
@@ -221,9 +242,14 @@ def goto3_11(fn):
                         c.co_freevars,
                         c.co_cellvars)
 
-    return nc
+    fn.__code__ = nc
+    return fn
 
 
-#f = goto3_11(foo)
-#dis.dis(f)
-#print(list(f.co_code))
+f = goto3_11(foo)
+dis.dis(f, show_caches=True)
+print(list(f.__code__.co_code))
+print('f = ')
+r = f(5)
+print(r)
+print('Done')
