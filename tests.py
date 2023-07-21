@@ -141,5 +141,19 @@ class MyTestCase(unittest.TestCase):
             got_exception = True
         self.assertTrue(got_exception)
 
+    def test_unreachable_code_suggestion(self):
+        got_exception = False
+        try:
+            @goto
+            def goto_unreachable_code():
+                goto .after_return
+                return 5
+                label .after_return  # Python will remove 'unreachable' code
+                return 10
+        except MissingLabelError:
+            got_exception = True
+        self.assertTrue(got_exception)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -201,7 +201,7 @@ def find_labels_and_gotos3_11(code) -> dict[Label]:
 
     hanging_goto = gotos.keys() - labels.keys()
     if len(hanging_goto) != 0:
-        raise MissingLabelError(f"Gotos missing labels: {', '.join(hanging_goto)}")
+        raise MissingLabelError(f"Goto missing labels: {', '.join(hanging_goto)}. Python may have removed 'unreachable' code. Use 'if __name__: return' instead of 'return'")
 
     label_objs = {}
     for label in labels:
