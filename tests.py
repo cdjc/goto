@@ -1,7 +1,7 @@
 import unittest
 
 from goto import goto3_11 as goto
-from goto import DuplicateLabelError, GotoNotWithinLabelBlock
+from goto import DuplicateLabelError, GotoNotWithinLabelBlock, GotoNestedTooDeeply, MissingLabelError
 
 
 class MyTestCase(unittest.TestCase):
@@ -72,6 +72,76 @@ class MyTestCase(unittest.TestCase):
             return False
 
         pop_iter_in_loop()
+
+    def test_deep_nest(self):
+        @goto
+        def deep_nest():
+            for _ in [1]:
+                for _ in [1]:
+                    for _ in [1]:
+                        for _ in [1]:
+                            for _ in [1]:
+                                for _ in [1]:
+                                    for _ in [1]:
+                                        for _ in [1]:
+                                            goto.here
+            if __name__: return False
+            label .here
+            return True
+
+        import dis
+        dis.dis(deep_nest)
+        self.assertTrue(deep_nest())
+
+    def test_too_deep_nest(self):
+        got_exception = False
+        try:
+            @goto
+            def deep_nest():
+                for _ in [1]:
+                    for _ in [1]:
+                        for _ in [1]:
+                            for _ in [1]:
+                                for _ in [1]:
+                                    for _ in [1]:
+                                        for _ in [1]:
+                                            for _ in [1]:
+                                                for _ in [1]:
+                                                    for _ in [1]:
+                                                        for _ in [1]:
+                                                            for _ in [1]:
+                                                                goto .here
+                if __name__: return False
+                label .here
+                return True
+        except GotoNestedTooDeeply:
+            got_exception = True
+        self.assertTrue(got_exception)
+
+    def test_not_in_same_block(self):
+        got_exception = False
+        try:
+            @goto
+            def not_in_same_block():
+                for _ in [1]:
+                    for _ in [1]:
+                        goto .here
+                    for _ in [1]:
+                        label .here
+        except GotoNotWithinLabelBlock:
+            got_exception = True
+        self.assertTrue(got_exception)
+
+    def test_goto_missing_label(self):
+        got_exception = False
+        try:
+            @goto
+            def goto_missing_label():
+                goto .there
+                label .here
+        except MissingLabelError:
+            got_exception = True
+        self.assertTrue(got_exception)
 
 if __name__ == '__main__':
     unittest.main()

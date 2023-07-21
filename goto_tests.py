@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 from goto import *
+import sys
+
+if sys.version_info >= (3,11):
+    raise Exception('These tests do not work on Python 3.11 or later')
 
 def foo():
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import dis
+import sys
 import types
 
 
@@ -26,7 +27,7 @@ class JumpTooFar(Exception):
 class GotoNestedTooDeeply(Exception):
     pass
 
-def goto(fn):
+def goto_pre311(fn):
     """
     A function decorator to add the goto command for a function.
 
@@ -46,7 +47,7 @@ def goto(fn):
     """
     c = fn.__code__
 
-    labels, gotos = find_labels_and_gotos(c)
+    labels, gotos = find_labels_and_gotos_pre311(c)
 
     # make list from bytestring so we can modify the bytes
     ilist = list(c.co_code)
@@ -105,7 +106,7 @@ def goto(fn):
     return fn
 
 
-def find_labels_and_gotos(code):
+def find_labels_and_gotos_pre311(code):
     '''
     Return map for all labels and gotos in code.
     each mapping is:
@@ -151,21 +152,6 @@ def find_labels_and_gotos(code):
 
 
 
-def foo(n):
-    s = 0
-
-    label .myLoop
-
-    print(s)
-    if n <= 0:
-        goto .end
-    s += n
-    n -= 1
-
-    goto .myLoop
-
-    label .end
-    return s
 
 class Label:
 
@@ -287,28 +273,7 @@ def goto3_11(fn):
     fn.__code__ = fn.__code__.replace(co_code = bytes(ilist))
     return fn
 
-# if __name__ == '__main__':
-#     goto = goto3_11
-#
-#     def pop_iter_in_loop():
-#         count = 0
-#
-#         label.repeat
-#         count += 1
-#         print(count)
-#         if count == 50:  # will die at 21 if we don't POP_BLOCK
-#
-#             return True
-#
-#         for x in [1]:
-#             if x == 1:
-#                 goto.repeat
-#         return False
-#
-#     fn = pop_iter_in_loop
-#     dis.dis(fn)
-#     f = goto3_11(pop_iter_in_loop)
-#     dis.dis(f, show_caches=True)
-#     print(list(f.__code__.co_code))
-#     f()
-#     print('Done')
+if sys.version_info >= (3,11):
+    goto = goto3_11()
+else:
+    goto = goto_pre311()
