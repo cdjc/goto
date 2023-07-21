@@ -16,7 +16,15 @@ class DuplicateLabelError(Exception):
 class IllegalGoto(Exception):
     pass
 
+class GotoNotWithinLabelBlock(Exception):
+    pass
 
+class JumpTooFar(Exception):
+    # TODO Should fix this with extended args
+    pass
+
+class GotoNestedTooDeeply(Exception):
+    pass
 
 def goto(fn):
     """
@@ -150,41 +158,74 @@ def foo(n):
 
     print(s)
     if n <= 0:
-        return s
+        goto .end
     s += n
     n -= 1
 
     goto .myLoop
 
+    label .end
     return s
 
-def find_labels_and_gotos3_11(code):
+class Label:
+
+    def __init__(self, name, load_global_idx, load_attr_idx, stack):
+        self.name = name
+        self.load_global_idx = load_global_idx
+        self.load_attr_idx = load_attr_idx
+        self.stack = stack
+        self.gotos = []
+
+    def add_goto(self, load_global_idx, load_attr_idx, stack):
+        # label stack must be prefix of goto stack
+        if len(stack) < len(self.stack):
+            raise GotoNotWithinLabelBlock()
+        if not all(x[0] == x[1] for x in zip(self.stack, stack)):
+            raise GotoNotWithinLabelBlock()
+        pops_needed = len(stack) - len(self.stack)
+        self.gotos.append((load_global_idx, load_attr_idx, pops_needed))
+
+
+def find_labels_and_gotos3_11(code) -> dict[Label]:
+
     labels = {}
     gotos = {}
+
+    for_iter_stack = []  # instruction number of the FOR_ITERs that we have seen. pop when we se a corresponding JUMP_BACKWARD
+
     for ins in dis.get_instructions(code):
-        # XXX find out how nested into for loops we are
-        # XXX Maintain stack of GET_ITER locations we'll need to POP_TOP
-        # XXX if we want to jump 'up' the stack.
-        if ins.opname == 'LOAD_GLOBAL':
+        if ins.opname == 'FOR_ITER':
+            for_iter_stack.append(ins.offset)
+        elif ins.opname == 'JUMP_BACKWARD' and for_iter_stack and ins.argval == for_iter_stack[-1]:
+            for_iter_stack.pop()
+        elif ins.opname == 'LOAD_GLOBAL':
             global_name = ins.argval
             index = ins.offset
             continue
-        if ins.opname == 'LOAD_ATTR':
+        elif ins.opname == 'LOAD_ATTR':
             label = ins.argval
             if global_name == 'label':
                 if label in labels:
                     raise DuplicateLabelError('Label "{}" appears more than once'.format(label))
-                labels[label] = index, ins.offset, tuple([])  # XXX (load_global, load_attr, stack of get_attr)
+                labels[label] = index, ins.offset, tuple(for_iter_stack)  # XXX (load_global, load_attr, stack of get_attr)
             elif global_name == 'goto':
                 if label not in gotos:
                     gotos[label] = []
-                gotos[label].append((index, ins.offset, tuple([])))  # XXX (load_global, load_attr, stack of get_attr)
+                gotos[label].append((index, ins.offset, tuple(for_iter_stack)))  # XXX (load_global, load_attr, stack of get_attr)
 
     hanging_goto = gotos.keys() - labels.keys()
     if len(hanging_goto) != 0:
         raise MissingLabelError(f"Gotos missing labels: {', '.join(hanging_goto)}")
 
-    return labels, gotos
+    label_objs = {}
+    for label in labels:
+        label_objs[label] = Label(label, *labels[label])
+
+    for goto_label in gotos:
+        for load_global, load_attr, stack in gotos[goto_label]:
+            label_objs[goto_label].add_goto(load_global, load_attr, stack)
+
+    return label_objs
 
 def goto3_11(fn):
     '''
@@ -192,22 +233,22 @@ def goto3_11(fn):
     '''
     c = fn.__code__
 
-    labels, gotos = find_labels_and_gotos3_11(c)
+    labels: dict[Label] = find_labels_and_gotos3_11(c)
 
     # make list from bytestring so we can modify the bytes
     ilist = list(c.co_code)
 
     globals_to_nop = []
     attrs_to_nop = []
-    # no-op the labels (and the CACHEs too otherwise it won't work)
-    for label, (load_global, load_attr, _) in labels.items():
-        globals_to_nop.append(load_global)
-        attrs_to_nop.append(load_attr)
 
-    for goto_ls in gotos.values():
-        for (load_global, load_attr, _) in goto_ls:
-            globals_to_nop.append(load_global)
-            attrs_to_nop.append(load_attr)
+    # no-op the labels (and the CACHEs too otherwise it won't work)
+    for label in labels.values():
+        globals_to_nop.append(label.load_global_idx)
+        attrs_to_nop.append(label.load_attr_idx)
+        for lglobal, lattr, _ in label.gotos:
+            globals_to_nop.append(lglobal)
+            attrs_to_nop.append(lattr)
+
 
     for index in globals_to_nop:
         cache_count = dis._inline_cache_entries[dis.opmap['LOAD_GLOBAL']]
@@ -219,47 +260,55 @@ def goto3_11(fn):
         for nopi in range(cache_count+1+1):  # + 1 for the instruction itself +1 for POP_TOP
             ilist[index+nopi*2] = 9
 
-    #
+    # add in the JUMPs
 
-    for label in gotos:
-        for goto_index, _, _ in gotos[label]:
-            label_index, _, _ = labels[label]
-            diff = (goto_index - label_index) // 2  # bytecodes are 2 bytes each.
-            # if abs(diff) > 255 then use EXTENDED_ARG
+    for label in labels.values():
+        for goto_index, _, pops_needed in label.gotos:
+            index = goto_index
+            # Check that we can fit enough POP_TOPs
+            if ilist[index + pops_needed * 2] != dis.opmap['NOP']:
+                raise GotoNestedTooDeeply()
+            for i in range(pops_needed):
+                ilist[index] = dis.opmap['POP_TOP']
+                ilist[index + 1] = 0
+                index += 2
+            diff = (index - label.load_global_idx) // 2  # bytecodes are 2 bytes each.
+            if abs(diff) > 255:  # then use EXTENDED_ARG
+                raise JumpTooFar()
+
             if diff > 0:
-                ilist[goto_index] = dis.opmap['JUMP_BACKWARD']
-                ilist[goto_index + 1] = diff + 1  # + 1 because it counts from the instruction after the JUMP
+                ilist[index] = dis.opmap['JUMP_BACKWARD']
+                ilist[index + 1] = diff + 1  # + 1 because it counts from the instruction after the JUMP
             else:
-                ilist[goto_index] = dis.opmap['JUMP_FORWARD']
-                ilist[goto_index + 1] = -diff
+                ilist[index] = dis.opmap['JUMP_FORWARD']
+                ilist[index + 1] = -diff - 1  # - 1 because it counts from the instruction after the JUMP
 
-    nc = types.CodeType(c.co_argcount,
-                        c.co_posonlyargcount,
-                        c.co_kwonlyargcount,
-                        c.co_nlocals,
-                        c.co_stacksize,
-                        c.co_flags,
-                        bytes(ilist),  # c.co_code,
-                        c.co_consts,
-                        c.co_names,
-                        c.co_varnames,
-                        c.co_filename,
-                        c.co_name,
-                        c.co_qualname,
-                        c.co_firstlineno,
-                        c.co_linetable,
-                        c.co_exceptiontable,
-                        c.co_freevars,
-                        c.co_cellvars)
 
-    fn.__code__ = nc
+    fn.__code__ = fn.__code__.replace(co_code = bytes(ilist))
     return fn
 
-
-f = goto3_11(foo)
-dis.dis(f, show_caches=True)
-print(list(f.__code__.co_code))
-print('f = ')
-r = f(5)
-print(r)
-print('Done')
+# if __name__ == '__main__':
+#     goto = goto3_11
+#
+#     def pop_iter_in_loop():
+#         count = 0
+#
+#         label.repeat
+#         count += 1
+#         print(count)
+#         if count == 50:  # will die at 21 if we don't POP_BLOCK
+#
+#             return True
+#
+#         for x in [1]:
+#             if x == 1:
+#                 goto.repeat
+#         return False
+#
+#     fn = pop_iter_in_loop
+#     dis.dis(fn)
+#     f = goto3_11(pop_iter_in_loop)
+#     dis.dis(f, show_caches=True)
+#     print(list(f.__code__.co_code))
+#     f()
+#     print('Done')
