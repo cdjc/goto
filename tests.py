@@ -1,6 +1,6 @@
 import unittest
 
-from goto import goto3_11 as goto
+from goto import goto
 from goto import DuplicateLabelError, GotoNotWithinLabelBlock, GotoNestedTooDeeply, MissingLabelError
 
 
@@ -89,8 +89,6 @@ class MyTestCase(unittest.TestCase):
             label .here
             return True
 
-        import dis
-        dis.dis(deep_nest)
         self.assertTrue(deep_nest())
 
     def test_too_deep_nest(self):

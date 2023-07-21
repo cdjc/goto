@@ -274,6 +274,6 @@ def goto3_11(fn):
     return fn
 
 if sys.version_info >= (3,11):
-    goto = goto3_11()
+    goto = goto3_11
 else:
-    goto = goto_pre311()
+    goto = goto_pre311
