@@ -17,15 +17,19 @@ class DuplicateLabelError(Exception):
 class IllegalGoto(Exception):
     pass
 
+
 class GotoNotWithinLabelBlock(Exception):
     pass
+
 
 class JumpTooFar(Exception):
     # TODO Should fix this with extended args
     pass
 
+
 class GotoNestedTooDeeply(Exception):
     pass
+
 
 def goto_pre311(fn):
     """
@@ -151,8 +155,6 @@ def find_labels_and_gotos_pre311(code):
     return labels, gotos
 
 
-
-
 class Label:
 
     def __init__(self, name, load_global_idx, load_attr_idx, stack):
@@ -173,7 +175,6 @@ class Label:
 
 
 def find_labels_and_gotos3_11(code) -> dict[Label]:
-
     labels = {}
     gotos = {}
 
@@ -193,15 +194,18 @@ def find_labels_and_gotos3_11(code) -> dict[Label]:
             if global_name == 'label':
                 if label in labels:
                     raise DuplicateLabelError('Label "{}" appears more than once'.format(label))
-                labels[label] = index, ins.offset, tuple(for_iter_stack)  # XXX (load_global, load_attr, stack of get_attr)
+                labels[label] = index, ins.offset, tuple(
+                    for_iter_stack)  # XXX (load_global, load_attr, stack of get_attr)
             elif global_name == 'goto':
                 if label not in gotos:
                     gotos[label] = []
-                gotos[label].append((index, ins.offset, tuple(for_iter_stack)))  # XXX (load_global, load_attr, stack of get_attr)
+                gotos[label].append(
+                    (index, ins.offset, tuple(for_iter_stack)))  # XXX (load_global, load_attr, stack of get_attr)
 
     hanging_goto = gotos.keys() - labels.keys()
     if len(hanging_goto) != 0:
-        raise MissingLabelError(f"Goto missing labels: {', '.join(hanging_goto)}. Python may have removed 'unreachable' code. Use 'if __name__: return' instead of 'return'")
+        raise MissingLabelError(
+            f"Goto missing labels: {', '.join(hanging_goto)}. Python may have removed 'unreachable' code. Use 'if __name__: return' instead of 'return'")
 
     label_objs = {}
     for label in labels:
@@ -212,6 +216,7 @@ def find_labels_and_gotos3_11(code) -> dict[Label]:
             label_objs[goto_label].add_goto(load_global, load_attr, stack)
 
     return label_objs
+
 
 def goto3_11(fn):
     '''
@@ -235,16 +240,15 @@ def goto3_11(fn):
             globals_to_nop.append(lglobal)
             attrs_to_nop.append(lattr)
 
-
     for index in globals_to_nop:
         cache_count = dis._inline_cache_entries[dis.opmap['LOAD_GLOBAL']]
-        for nopi in range(cache_count+1):  # + 1 for the instruction itself
-            ilist[index+nopi*2] = 9
+        for nopi in range(cache_count + 1):  # + 1 for the instruction itself
+            ilist[index + nopi * 2] = 9
 
     for index in attrs_to_nop:
         cache_count = dis._inline_cache_entries[dis.opmap['LOAD_ATTR']]
-        for nopi in range(cache_count+1+1):  # + 1 for the instruction itself +1 for POP_TOP
-            ilist[index+nopi*2] = 9
+        for nopi in range(cache_count + 1 + 1):  # + 1 for the instruction itself +1 for POP_TOP
+            ilist[index + nopi * 2] = 9
 
     # add in the JUMPs
 
@@ -252,28 +256,36 @@ def goto3_11(fn):
         for goto_index, _, pops_needed in label.gotos:
             index = goto_index
             # Check that we can fit enough POP_TOPs
-            if ilist[index + pops_needed * 2] != dis.opmap['NOP']:
+            # NOTE: The +2 means we always assume we have to add a single EXTENDED_ARG
+            if ilist[index + pops_needed * 2 + 2] != dis.opmap['NOP']:
                 raise GotoNestedTooDeeply()
             for i in range(pops_needed):
                 ilist[index] = dis.opmap['POP_TOP']
                 ilist[index + 1] = 0
                 index += 2
             diff = (index - label.load_global_idx) // 2  # bytecodes are 2 bytes each.
-            if abs(diff) > 255:  # then use EXTENDED_ARG
-                raise JumpTooFar()
 
             if diff > 0:
+                diff += 1  # + 1 because it counts from the instruction after the JUMP
+                if diff > 255:
+                    diff += 1  # we now have to jump over the EXTENDED_ARG instruction too
+                    ilist[index] = dis.opmap['EXTENDED_ARG']
+                    ilist[index + 1] = diff >> 8  # ignore the lower 8 bits
+                    diff &= 255  # only the lower 8 bits
+                    index += 2
                 ilist[index] = dis.opmap['JUMP_BACKWARD']
-                ilist[index + 1] = diff + 1  # + 1 because it counts from the instruction after the JUMP
+                ilist[index + 1] = diff
             else:
+                if -diff - 1 > 255:
+                    raise JumpTooFar()  # TODO: Fix one day
                 ilist[index] = dis.opmap['JUMP_FORWARD']
                 ilist[index + 1] = -diff - 1  # - 1 because it counts from the instruction after the JUMP
 
-
-    fn.__code__ = fn.__code__.replace(co_code = bytes(ilist))
+    fn.__code__ = fn.__code__.replace(co_code=bytes(ilist))
     return fn
 
-if sys.version_info >= (3,11):
+
+if sys.version_info >= (3, 11):
     goto = goto3_11
 else:
     goto = goto_pre311
