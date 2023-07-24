@@ -1,3 +1,4 @@
+import re
 import random
 import timeit
 from enum import Enum
@@ -41,15 +42,15 @@ class FPSum(StateMachine):
 
 def run_import_statemachine(s):
     sm = FPSum()
-    # sm._graph().write_png('fp_sum_expr.png')
-
+    # # sm._graph().write_png('fp_sum_expr.png')
+    #
     digit = 'digit'
     exp = 'exp'
     dot = 'dot'
     plus = 'plus'
     minus = 'minus'
     done = 'done'
-
+    #
     event = {
         '0': digit,
         '1': digit,
@@ -80,21 +81,26 @@ def run_import_statemachine(s):
     return sm.current_state.id == 's_done'
 
 
+class States(Enum):
+    start = 1
+    digits1 = 2
+    dot = 3
+    digits2 = 4
+    exp = 5
+    expsign = 6
+    expdigits = 7
+    done = 8
+
 def run_match(s):
-    class States(Enum):
-        start = 1
-        digits1 = 2
-        dot = 3
-        digits2 = 4
-        exp = 5
-        expsign = 6
-        expdigits = 7
-        done = 8
 
     count = 0
     state = States.start
     good = True
+    i = 0
     for c in s:
+    # while True:
+    #     c = s[i]
+    #     i += 1
         match c:
             case '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0':
                 count += 1
@@ -217,6 +223,10 @@ def run_goto(s):
     elif __name__:
         return False
 
+fpsum_re = re.compile(r'\d+(\.\d+)?(e[+-]\d+)?(\+\d+(\.\d+)?(e[+-]\d+)?)*\$')
+def run_re(s):
+    m = fpsum_re.match(s)
+    assert(m.endpos == len(s))
 
 def generate_str(n: int, seed: int = None) -> str:
     if seed is not None:
@@ -241,16 +251,18 @@ def generate_str(n: int, seed: int = None) -> str:
     return '+'.join(fpnums) + '$'  # '$' for EOF
 
 
+def run_dummy(s):
+    return s
+
 if __name__ == '__main__':
     s = generate_str(2002, seed=1236)
     print('Length:', len(s))
     # open('rmthis','w').write(s)
-    d = timeit.timeit(lambda: run_import_statemachine(s), number=5)
-    print('python-statemachine:', d / 5)
+    d = timeit.timeit(lambda: run_import_statemachine(s), number=10)
+    print('python-statemachine:', d / 10)
     d = timeit.timeit(lambda: run_match(s), number=100)
     print('for loop + match:', d / 100)
-    # import dis
-    # dis.dis(run_goto)
-    # print(s)
+    d = timeit.timeit(lambda: run_re(s), number=1000)
+    print('re:', d / 1000)
     d = timeit.timeit(lambda: run_goto(s), number=1000)
     print('goto:', d / 1000)
