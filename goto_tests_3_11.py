@@ -154,6 +154,22 @@ class MyTestCase(unittest.TestCase):
             got_exception = True
         self.assertTrue(got_exception)
 
+    def test_example(self):
+        @goto
+        def matrix_find(matrix, n):
+            for square in matrix:
+                for line in square:
+                    for value in line:
+                        if value == n:
+                            rval = "found"
+                            goto .found
+            rval = "not found"
+            label .found
+            # ... other code here ...
+            return rval
+
+        val = matrix_find([[[1,2]],[[3,4]]], 3)
+        self.assertEqual("found", val)
 
 if __name__ == '__main__':
     unittest.main()
