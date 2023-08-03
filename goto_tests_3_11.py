@@ -221,8 +221,8 @@ class MyTestCase(unittest.TestCase):
             goto .start  # we will actually jump back 257 because +1 for the extended arg.
             return -1  # Shouldn't ever get here
 
-        import dis
-        dis.dis(ext_arg_back)
+        # import dis
+        # dis.dis(ext_arg_back)
         self.assertEqual(2, ext_arg_back())
 
     def test_no_ext_arg_back(self):
@@ -274,8 +274,8 @@ class MyTestCase(unittest.TestCase):
             goto .start
             return -1  # Shouldn't ever get here
 
-        import dis
-        dis.dis(no_ext_arg_back)
+        # import dis
+        # dis.dis(no_ext_arg_back)
         self.assertEqual(2, no_ext_arg_back())
 
 if __name__ == '__main__':
