@@ -163,6 +163,7 @@ class Label:
         self.load_attr_idx = load_attr_idx
         self.stack = stack
         self.gotos = []
+        self.target_idx = None  # fill this in when we NOP the instructions. Should point to the last NOP
 
     def add_goto(self, load_global_idx, load_attr_idx, stack):
         # label stack must be prefix of goto stack
@@ -233,22 +234,24 @@ def goto3_11(fn):
     globals_to_nop = []
     attrs_to_nop = []
 
+    load_global_cache_count = dis._inline_cache_entries[dis.opmap['LOAD_GLOBAL']]
+    load_attr_cache_count = dis._inline_cache_entries[dis.opmap['LOAD_ATTR']]
+
     # no-op the labels (and the CACHEs too otherwise it won't work)
     for label in labels.values():
         globals_to_nop.append(label.load_global_idx)
         attrs_to_nop.append(label.load_attr_idx)
+        label.target_idx = label.load_attr_idx + load_attr_cache_count * 2 + 2 # 2 bytes per instruction
         for lglobal, lattr, _ in label.gotos:
             globals_to_nop.append(lglobal)
             attrs_to_nop.append(lattr)
 
     for index in globals_to_nop:
-        cache_count = dis._inline_cache_entries[dis.opmap['LOAD_GLOBAL']]
-        for nopi in range(cache_count + 1):  # + 1 for the instruction itself
+        for nopi in range(load_global_cache_count + 1):  # + 1 for the instruction itself
             ilist[index + nopi * 2] = 9
 
     for index in attrs_to_nop:
-        cache_count = dis._inline_cache_entries[dis.opmap['LOAD_ATTR']]
-        for nopi in range(cache_count + 1 + 1):  # + 1 for the instruction itself +1 for POP_TOP
+        for nopi in range(load_attr_cache_count + 1 + 1):  # + 1 for the instruction itself +1 for POP_TOP
             ilist[index + nopi * 2] = 9
 
     # add in the JUMPs
@@ -264,7 +267,8 @@ def goto3_11(fn):
                 ilist[index] = dis.opmap['POP_TOP']
                 ilist[index + 1] = 0
                 index += 2
-            diff = (index - label.load_global_idx) // 2  # bytecodes are 2 bytes each.
+            # diff = (index - label.load_global_idx) // 2  # bytecodes are 2 bytes each.
+            diff = (index - label.target_idx) // 2  # bytecodes are 2 bytes each.
 
             if diff > 0:
                 diff += 1  # + 1 because it counts from the instruction after the JUMP
@@ -277,10 +281,13 @@ def goto3_11(fn):
                 ilist[index] = dis.opmap['JUMP_BACKWARD']
                 ilist[index + 1] = diff
             else:
-                if -diff - 1 > 255:
-                    raise JumpTooFar()  # TODO: Fix one day
-                ilist[index] = dis.opmap['JUMP_FORWARD']
-                ilist[index + 1] = -diff - 1  # - 1 because it counts from the instruction after the JUMP
+                diff = -diff
+                diff -= 2  # -1 for EXTENDED_ARG and -1 because it counts from the instruction after the JUMP
+                ilist[index] = dis.opmap['EXTENDED_ARG']
+                ilist[index + 1] = diff >> 8  # ignore the lower 8 bits
+
+                ilist[index + 2] = dis.opmap['JUMP_FORWARD']
+                ilist[index + 3] = diff
 
     fn.__code__ = fn.__code__.replace(co_code=bytes(ilist))
     return fn

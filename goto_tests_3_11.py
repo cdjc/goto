@@ -6,16 +6,18 @@ from goto import DuplicateLabelError, GotoNotWithinLabelBlock, GotoNestedTooDeep
 
 class MyTestCase(unittest.TestCase):
 
-    def test_simple(self):
+    def test_simple_forward(self):
         @goto
-        def simple():
+        def simple_forward():
             a = 5
             goto .done
             a = 7
             label .done
             self.assertEqual(5, a)
 
-        simple()
+        # import dis
+        # dis.dis(simple_forward)
+        simple_forward()
 
     def test_two_gotos(self):
         @goto
@@ -178,7 +180,7 @@ class MyTestCase(unittest.TestCase):
                 pass
             n = 0
             j = 0
-            label .start  # 12 instructions
+            label .start  # 1 instruction (the last NOP)
             n += 1  # 5 instructions
             dir(z)  # 15 instructions each that do nothing
             dir(z)
@@ -191,14 +193,15 @@ class MyTestCase(unittest.TestCase):
             dir(z)
             dir(z)
 
-            # 167 instructions past label 12+5+10*15
+            # 156 instructions past label 12+5+10*15
 
             dir(z)
             dir(z)
             dir(z)
             dir(z)
+            dir(z)
 
-            # 227 ins. past label
+            # 231 ins. past label
 
             # code before goto is 21 instructions
             if n == 2:
@@ -207,18 +210,14 @@ class MyTestCase(unittest.TestCase):
             if j == 2:
                 return n  # Probably here if we jumped back short of the start label
 
-            # 248 past label
+            # 252 ins. past label
 
-            pass  # 249  +1 instruction
-            pass  # 250
-            pass  # 251
-            pass  # 252
-            pass  # 253
+            pass  # 253  +1 instruction
             pass  # 254
             pass  # 255
 
             # 256 (+ 1 because we jump after the label.)
-            goto .start  # we will actually jump back 257 because +1 for the extended arg.
+            goto .start  # we will actually jump back 257 because +1 for the extended arg before the jump.
             return -1  # Shouldn't ever get here
 
         # import dis
@@ -230,9 +229,10 @@ class MyTestCase(unittest.TestCase):
         def no_ext_arg_back():
             def z():
                 pass
+
             n = 0
             j = 0
-            label .start  # 12 instructions
+            label.start  # 1 instruction (the last NOP)
             n += 1  # 5 instructions
             dir(z)  # 15 instructions each that do nothing
             dir(z)
@@ -245,14 +245,15 @@ class MyTestCase(unittest.TestCase):
             dir(z)
             dir(z)
 
-            # 167 instructions past label 12+5+10*15
+            # 156 instructions past label 12+5+10*15
 
             dir(z)
             dir(z)
             dir(z)
             dir(z)
+            dir(z)
 
-            # 227 ins. past label
+            # 231 ins. past label
 
             # code before goto is 21 instructions
             if n == 2:
@@ -261,19 +262,14 @@ class MyTestCase(unittest.TestCase):
             if j == 2:
                 return n  # Probably here if we jumped back short of the start label
 
-            # 248 past label
+            # 252 ins. past label
 
-            pass  # 249  +1 instruction
-            pass  # 250
-            pass  # 251
-            pass  # 252
-            pass  # 253
+            pass  # 253  +1 instruction
             pass  # 254
 
             # 255 (+ 1 because we jump after the label.)
-            goto .start
+            goto.start
             return -1  # Shouldn't ever get here
-
         # import dis
         # dis.dis(no_ext_arg_back)
         self.assertEqual(2, no_ext_arg_back())
