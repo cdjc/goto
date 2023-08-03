@@ -38,11 +38,11 @@ def goto_pre311(fn):
     Specify labels like so:
 
     label .foo
-    
+
     Goto labels like so:
 
     goto .foo
-    
+
     Rules:
     No jumping out of or into a 'with' block (jumping out could be fixed)
     No jumping out of or into a 'try' or 'finally' block
@@ -184,6 +184,7 @@ def find_labels_and_gotos3_11(code) -> dict[Label]:
         if ins.opname == 'FOR_ITER':
             for_iter_stack.append(ins.offset)
         elif ins.opname == 'JUMP_BACKWARD' and for_iter_stack and ins.argval == for_iter_stack[-1]:
+            # TODO: This should take into account EXTENDED_ARG. A rare occurrence in practice I think.
             for_iter_stack.pop()
         elif ins.opname == 'LOAD_GLOBAL':
             global_name = ins.argval
