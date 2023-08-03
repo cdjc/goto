@@ -287,7 +287,7 @@ def goto3_11(fn):
                 ilist[index + 1] = diff >> 8  # ignore the lower 8 bits
 
                 ilist[index + 2] = dis.opmap['JUMP_FORWARD']
-                ilist[index + 3] = diff
+                ilist[index + 3] = diff & 255
 
     fn.__code__ = fn.__code__.replace(co_code=bytes(ilist))
     return fn

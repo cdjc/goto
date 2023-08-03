@@ -274,5 +274,39 @@ class MyTestCase(unittest.TestCase):
         # dis.dis(no_ext_arg_back)
         self.assertEqual(2, no_ext_arg_back())
 
+    def test_ext_arg_forward(self):
+        @goto
+        def ext_arg_forward():
+            goto .end
+            def z():
+                pass
+            dir(z)  # + 15 instruction each
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+            dir(z)
+            if __name__: return False
+            label.end
+            return True
+        self.assertTrue(ext_arg_forward())
+
 if __name__ == '__main__':
     unittest.main()
