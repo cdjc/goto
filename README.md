@@ -12,8 +12,8 @@ from goto import goto
 
 @goto
 def matrix_find(matrix, n):
-    for square in matrix:
-        for line in square:
+    for rectangle in matrix:
+        for line in rectangle:
             for value in line:
                 if value == n:
                     rval = "found"
