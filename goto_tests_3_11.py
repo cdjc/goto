@@ -19,6 +19,18 @@ class MyTestCase(unittest.TestCase):
         # dis.dis(simple_forward)
         simple_forward()
 
+    def test_simple_upper(self):
+
+        @goto
+        def simple_upper():
+            a=5
+            lAbEL. foo
+            if a == 7:
+                return a
+            a = 7
+            GOTO .foo
+
+        self.assertEqual(7, simple_upper())
     def test_two_gotos(self):
         @goto
         def two_gotos(n):

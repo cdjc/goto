@@ -185,7 +185,6 @@ def find_labels_and_gotos3_11(code) -> dict[Label]:
         if ins.opname == 'FOR_ITER':
             for_iter_stack.append(ins.offset)
         elif ins.opname == 'JUMP_BACKWARD' and for_iter_stack and ins.argval == for_iter_stack[-1]:
-            # TODO: This should take into account EXTENDED_ARG. A rare occurrence in practice I think.
             for_iter_stack.pop()
         elif ins.opname == 'LOAD_GLOBAL':
             global_name = ins.argval
@@ -193,12 +192,12 @@ def find_labels_and_gotos3_11(code) -> dict[Label]:
             continue
         elif ins.opname == 'LOAD_ATTR':
             label = ins.argval
-            if global_name == 'label':
+            if global_name.lower() == 'label':
                 if label in labels:
                     raise DuplicateLabelError('Label "{}" appears more than once'.format(label))
                 labels[label] = index, ins.offset, tuple(
-                    for_iter_stack)  # XXX (load_global, load_attr, stack of get_attr)
-            elif global_name == 'goto':
+                    for_iter_stack)
+            elif global_name.lower() == 'goto':
                 if label not in gotos:
                     gotos[label] = []
                 gotos[label].append(
