@@ -260,7 +260,7 @@ def goto3_11(fn):
             index = goto_index
             # Check that we can fit enough POP_TOPs
             # NOTE: The +2 means we always assume we have to add a single EXTENDED_ARG
-            if ilist[index + pops_needed * 2 + 2] != dis.opmap['NOP']:
+            if ilist[index + pops_needed * 2 + 2] != dis.opmap['NOP']:  # TODO: This should check for consecutive NOPs
                 raise GotoNestedTooDeeply()
             for i in range(pops_needed):
                 ilist[index] = dis.opmap['POP_TOP']
