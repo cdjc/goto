@@ -1,0 +1,9 @@
+digraph doors {
+//graph [rankdir=LR];
+node [shape=rectangle];
+"Door open" -> "Door closed" [label = "shut door" ];
+"Door closed" -> "Door open" [label = "open door" ];
+"Door closed" -> "Door locked" [label = "lock door" ];
+"Door locked" -> "Door closed" [label = "unlock door" ];
+"Door locked" -> "Door open" [label = "hit with sledge hammer" ];
+}

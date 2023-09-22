@@ -43,6 +43,7 @@ class FPSum(StateMachine):
 def run_import_statemachine(s):
     sm = FPSum()
     # # sm._graph().write_png('fp_sum_expr.png')
+    # sm._graph().write_dot('fp_sum_expr.dot')
     #
     digit = 'digit'
     exp = 'exp'
